@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact | Shin U Jeong Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="main.js" defer></script>
+</head>
+<body class="contact-page">
+    <div id="loading-screen">
+        <div class="loader">
+            <div class="circuit-load"></div>
+            <span>LOADING CONTACT INTERFACE...</span>
+        </div>
+    </div>
+
+    <!-- Scroll Progress Bar -->
+    <div id="scroll-progress"></div>
+
+    <!-- Interactive Background Canvas -->
+    <canvas id="circuit-bg"></canvas>
+
+    <header>
+        <nav>
+            <a href="index.html" class="logo">SHIN<span>UJEONG</span></a>
+            <ul class="nav-links">
+                <li><a href="index.html#vision">Vision</a></li>
+                <li><a href="index.html#foundation">Competency</a></li>
+                <li><a href="index.html#logic">Maintenance</a></li>
+                <li><a href="index.html#intelligence">Intelligence</a></li>
+                <li><a href="index.html#roadmap">Roadmap</a></li>
+                <li><a href="board.html">Board</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="story-section">
+            <div class="container">
+                <div class="back-link">
+                    <a href="index.html"><i class="fas fa-arrow-left"></i> Back to Main Story</a>
+                </div>
+                <h2 class="section-title">Get In Touch</h2>
+                <p class="subtitle">협업 제안이나 기술적 문의는 아래 채널을 통해 남겨주세요.</p>
+                
+                <div class="contact-methods animate-fade">
+                    <div class="contact-method">
+                        <i class="fas fa-envelope"></i>
+                        <div class="method-info">
+                            <span class="label">Email</span>
+                            <span class="value">shinwooj05@dongyang.ac.kr</span>
+                        </div>
+                    </div>
+                    <div class="contact-method">
+                        <i class="fas fa-phone-alt"></i>
+                        <div class="method-info">
+                            <span class="label">Phone</span>
+                            <span class="value">010-7120-7308</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="contact-wrapper mt-30">
+                    <form id="contact-form" class="glass-form animate-fade">
+                        <div class="form-group">
+                            <label for="contact-name">성함 (Name)</label>
+                            <input type="text" id="contact-name" placeholder="John Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact-email">이메일 (Email)</label>
+                            <input type="email" id="contact-email" placeholder="example@email.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact-message">내용 (Message)</label>
+                            <textarea id="contact-message" rows="8" placeholder="함께 협업하고 싶은 내용이나 질문을 상세히 적어주세요..." required></textarea>
+                        </div>
+                        <button type="submit" class="submit-btn" style="width: auto; padding: 15px 60px;">메시지 전송하기 <i class="fas fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 SHIN U JEONG. All Rights Reserved. Built with Antigravity.</p>
+    </footer>
+</body>
+</html>
