@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board | Shin U Jeong Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="main.js" defer></script>
+    <script src="board.js" defer></script>
+</head>
+<body class="board-page">
+    <div id="loading-screen">
+        <div class="loader">
+            <div class="circuit-load"></div>
+            <span>LOADING BOARD INTERFACE...</span>
+        </div>
+    </div>
+
+    <!-- Scroll Progress Bar -->
+    <div id="scroll-progress"></div>
+
+    <!-- Interactive Background Canvas -->
+    <canvas id="circuit-bg"></canvas>
+
+    <header>
+        <nav>
+            <a href="index.html" class="logo">SHIN<span>UJEONG</span></a>
+            <ul class="nav-links">
+                <li><a href="index.html#vision">비전</a></li>
+                <li><a href="index.html#foundation">핵심 역량</a></li>
+                <li><a href="index.html#logic">유지보수</a></li>
+                <li><a href="index.html#roadmap">로드맵</a></li>
+                <li><a href="board.html" class="active">게시판</a></li>
+            </ul>
+            <div class="nav-controls">
+                <button id="lang-toggle" title="언어 전환">EN</button>
+                <button id="theme-toggle" title="테마 전환"><i class="fas fa-moon"></i></button>
+                <a href="contact.html" class="contact-btn">연락하기</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="story-section">
+            <div class="container">
+                <div class="back-link">
+                    <a href="index.html"><i class="fas fa-arrow-left"></i> 스토리로 돌아가기</a>
+                </div>
+                
+                <h2 class="section-title">자유 게시판</h2>
+                <p class="subtitle">궁금한 점이나 요청사항을 자유롭게 남겨주세요.</p>
+
+                <div class="board-controls animate-fade" style="display: flex; justify-content: flex-end; margin: 20px 0;">
+                    <button id="btn-show-write" class="board-btn secondary" style="width: auto; padding: 10px 25px;"><i class="fas fa-pen"></i> 글쓰기</button>
+                </div>
+
+                <div class="board-wrapper">
+                    <!-- Board Post Form (Initially Hidden) -->
+                    <div id="board-form-view" style="display:none;">
+                        <form id="board-form" class="glass-form animate-fade">
+                            <input type="hidden" id="board-edit-index" value="-1">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>성함</label>
+                                    <input type="text" id="board-name" placeholder="성함" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>이메일</label>
+                                    <input type="email" id="board-email" placeholder="email@example.com" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>내용</label>
+                                <textarea id="board-content" rows="6" placeholder="질문이나 요청사항을 입력해주세요..." required></textarea>
+                            </div>
+                            <div class="form-actions" style="display: flex; gap: 15px;">
+                                <button type="submit" class="board-btn">저장하기 <i class="fas fa-check"></i></button>
+                                <button type="button" id="btn-cancel-write" class="board-btn danger" style="background: rgba(255, 95, 86, 0.1); border-color: #ff5f56; color: #ff5f56;">취소 <i class="fas fa-times"></i></button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Board List (Initially Visible) -->
+                    <div id="board-list-view">
+                        <div id="board-list" class="board-list-container animate-fade">
+                            <!-- Posts will be injected here via main.js -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 SHIN U JEONG. All Rights Reserved. Built with Antigravity.</p>
+    </footer>
+</body>
+</html>
