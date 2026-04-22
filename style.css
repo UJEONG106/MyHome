@@ -1992,6 +1992,27 @@ footer {
         padding: 25px 20px !important;
         font-size: 0.95rem;
     }
+
+    /* Header & Navigation Fixes */
+    header {
+        padding: 10px 3% !important;
+    }
+    .logo {
+        font-size: 1.1rem !important;
+    }
+    .nav-controls {
+        gap: 8px !important;
+    }
+    #lang-toggle, #theme-toggle {
+        padding: 5px 8px !important;
+        font-size: 0.7rem !important;
+    }
+    .contact-btn {
+        padding: 6px 12px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important; /* Fixed: Prevents vertical '연락하기' */
+        border-radius: 4px !important;
+    }
 }
 
 
