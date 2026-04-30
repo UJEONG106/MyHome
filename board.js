@@ -185,13 +185,9 @@ async function initBoard() {
                 localStorage.removeItem(voteKey);
                 if (typeof showToast === 'function') showToast('투표를 취소했습니다.');
             } else if (previousVote) {
-                // Switching: Voted for Like -> Click Dislike
-                const oldType = previousVote;
-                updateData[oldType === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (data[oldType === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
-                updateData[type === 'like' ? 'likes' : 'dislikes'] = (data[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
-                await updateDoc(postRef, updateData);
-                localStorage.setItem(voteKey, type);
-                if (typeof showToast === 'function') showToast('투표 항목을 변경했습니다.');
+                // Switching blocked: Already voted for Like, cannot click Dislike (unless canceled)
+                if (typeof showToast === 'function') showToast(window.currentLang === 'en' ? 'Already voted for the other side.' : '이미 다른 항목에 투표하셨습니다.');
+                return;
             } else {
                 // New Vote
                 updateData[type === 'like' ? 'likes' : 'dislikes'] = (data[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
@@ -252,12 +248,9 @@ async function initBoard() {
                 localStorage.removeItem(voteKey);
                 if (typeof showToast === 'function') showToast('댓글 투표를 취소했습니다.');
             } else if (previousVote) {
-                // Switching
-                const oldType = previousVote;
-                comment[oldType === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (comment[oldType === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
-                comment[type === 'like' ? 'likes' : 'dislikes'] = (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
-                localStorage.setItem(voteKey, type);
-                if (typeof showToast === 'function') showToast('댓글 투표 항목을 변경했습니다.');
+                // Switching blocked
+                if (typeof showToast === 'function') showToast(window.currentLang === 'en' ? 'Already voted.' : '이미 투표하셨습니다.');
+                return;
             } else {
                 // Vote
                 comment[type === 'like' ? 'likes' : 'dislikes'] = (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
@@ -311,7 +304,7 @@ async function initBoard() {
             }).join('');
 
             return `
-                <div class="board-post glass-card animate-fade visible" style="margin-bottom: 30px; padding: 25px;">
+                <div class="board-post glass-card" style="margin-bottom: 30px; padding: 25px;">
                     <div class="post-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px; margin-bottom: 15px;">
                         <span class="post-author" style="font-weight: 800; color: var(--accent-blue); font-size:1.1rem;">${escapeHtml(post.name)}</span>
                         <span class="post-date" style="font-size: 0.8rem; color: var(--text-secondary);">${date}</span>
