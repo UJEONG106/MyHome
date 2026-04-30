@@ -180,19 +180,19 @@ async function initBoard() {
 
             if (previousVote === type) {
                 // Toggle OFF: Clicked the same button again
+                localStorage.removeItem(voteKey);
                 updateData[type === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (data[type === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
                 await updateDoc(postRef, updateData);
-                localStorage.removeItem(voteKey);
                 if (typeof showToast === 'function') showToast('투표를 취소했습니다.');
             } else if (previousVote) {
-                // Switching blocked: Already voted for Like, cannot click Dislike (unless canceled)
+                // Switching blocked
                 if (typeof showToast === 'function') showToast(window.currentLang === 'en' ? 'Already voted for the other side.' : '이미 다른 항목에 투표하셨습니다.');
                 return;
             } else {
                 // New Vote
+                localStorage.setItem(voteKey, type);
                 updateData[type === 'like' ? 'likes' : 'dislikes'] = (data[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
                 await updateDoc(postRef, updateData);
-                localStorage.setItem(voteKey, type);
                 if (typeof showToast === 'function') showToast('투표가 반영되었습니다.');
             }
         } catch (error) {
