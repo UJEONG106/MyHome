@@ -1637,7 +1637,6 @@ footer {
 }
 
 .submit-btn:hover, .board-btn:hover {
-    transform: translateY(-3px);
     box-shadow: 0 10px 25px var(--sk-orange-glow);
     filter: brightness(1.1);
 }
@@ -1656,11 +1655,9 @@ footer {
     padding: 25px;
     border-radius: 15px;
     border-left: 4px solid var(--accent-blue);
-    transition: all 0.3s;
 }
 
 .board-post:hover {
-    transform: translateX(10px);
     background: rgba(255, 255, 255, 0.08);
 }
 
