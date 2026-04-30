@@ -426,7 +426,7 @@ let currentLang = localStorage.getItem('lang') || 'ko';
 const langToggle = document.getElementById('lang-toggle');
 
 function applyTranslation(lang) {
-    const elements = document.querySelectorAll('h1, h2, h3, p, li, span, a, label, button, div, strong');
+    const elements = document.querySelectorAll('h1, h2, h3, h4, h5, p, li, span, a, label, button, div, strong');
     
     elements.forEach(el => {
         // If this is the first time, store the original Korean HTML as the lookup key

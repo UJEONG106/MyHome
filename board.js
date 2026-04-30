@@ -121,20 +121,32 @@ async function initBoard() {
         window.toggleBoardView(true);
     };
 
-    // 5. Vote (Like/Dislike) with Local Storage Protection
+    // 5. Vote (Like/Dislike) with Toggle & Local Storage Protection
     window.handleVote = async function(id, type, currentCount) {
         const voteKey = `voted_${id}`;
-        if (localStorage.getItem(voteKey)) {
-            if (typeof showToast === 'function') showToast('이미 투표하셨습니다.');
-            return;
-        }
+        const previousVote = localStorage.getItem(voteKey);
 
         try {
             const postRef = doc(db, "posts", id);
-            const increment = type === 'like' ? { likes: currentCount + 1 } : { dislikes: currentCount + 1 };
-            await updateDoc(postRef, increment);
-            localStorage.setItem(voteKey, 'true');
-            if (typeof showToast === 'function') showToast('투표가 반영되었습니다.');
+            let updateData = {};
+
+            if (previousVote === type) {
+                // Toggle OFF: Clicked the same button again
+                updateData[type === 'like' ? 'likes' : 'dislikes'] = Math.max(0, currentCount - 1);
+                await updateDoc(postRef, updateData);
+                localStorage.removeItem(voteKey);
+                if (typeof showToast === 'function') showToast('투표를 취소했습니다.');
+            } else if (previousVote) {
+                // Already voted for the OTHER type
+                if (typeof showToast === 'function') showToast('이미 다른 항목에 투표하셨습니다.');
+                return;
+            } else {
+                // New Vote
+                updateData[type === 'like' ? 'likes' : 'dislikes'] = currentCount + 1;
+                await updateDoc(postRef, updateData);
+                localStorage.setItem(voteKey, type);
+                if (typeof showToast === 'function') showToast('투표가 반영되었습니다.');
+            }
         } catch (error) {
             console.error("Error voting:", error);
         }
@@ -148,16 +160,15 @@ async function initBoard() {
 
         try {
             const postRef = doc(db, "posts", postId);
-            // We use an array for comments in Firestore
-            const postSnap = await getDocs(query(collection(db, "posts"))); // This is inefficient but okay for small scale
-            // Better: find current post data or use arrayUnion
             const { arrayUnion } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
             
             await updateDoc(postRef, {
                 comments: arrayUnion({
-                    author: "익명", // Could be enhanced with auth later
+                    author: "익명",
                     content: content,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    likes: 0,
+                    dislikes: 0
                 })
             });
             input.value = '';
@@ -165,6 +176,43 @@ async function initBoard() {
         } catch (error) {
             console.error("Error adding comment:", error);
             alert("댓글 저장 중 오류가 발생했습니다.");
+        }
+    };
+
+    // 7. Comment Vote Toggle
+    window.handleCommentVote = async function(postId, commentIndex, type) {
+        const voteKey = `voted_comment_${postId}_${commentIndex}`;
+        const previousVote = localStorage.getItem(voteKey);
+
+        try {
+            const postRef = doc(db, "posts", postId);
+            // We need to get the whole array to update a specific index (Firestore limitation for nested arrays)
+            const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+            const snap = await getDoc(postRef);
+            if (!snap.exists()) return;
+            
+            const comments = snap.data().comments || [];
+            const comment = comments[commentIndex];
+            if (!comment) return;
+
+            if (previousVote === type) {
+                // Cancel
+                comment[type === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
+                localStorage.removeItem(voteKey);
+                if (typeof showToast === 'function') showToast('댓글 투표를 취소했습니다.');
+            } else if (previousVote) {
+                if (typeof showToast === 'function') showToast('이미 투표하셨습니다.');
+                return;
+            } else {
+                // Vote
+                comment[type === 'like' ? 'likes' : 'dislikes'] = (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
+                localStorage.setItem(voteKey, type);
+                if (typeof showToast === 'function') showToast('댓글에 투표했습니다.');
+            }
+
+            await updateDoc(postRef, { comments });
+        } catch (error) {
+            console.error("Error comment voting:", error);
         }
     };
 
@@ -178,13 +226,21 @@ async function initBoard() {
 
         boardList.innerHTML = posts.map(post => {
             const date = post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleString('ko-KR') : '방금 전';
-            const commentsHtml = (post.comments || []).map(comment => `
+            const commentsHtml = (post.comments || []).map((comment, idx) => `
                 <div class="comment-item" style="padding: 10px; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span style="color: var(--sk-orange); font-weight: 600;">${escapeHtml(comment.author)}</span>
                         <span style="color: var(--text-secondary); font-size: 0.7rem;">${new Date(comment.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <div style="color: var(--text-primary);">${escapeHtml(comment.content)}</div>
+                    <div style="color: var(--text-primary); margin-bottom: 8px;">${escapeHtml(comment.content)}</div>
+                    <div class="comment-votes" style="display: flex; gap: 12px; opacity: 0.8;">
+                        <button onclick="handleCommentVote('${post.id}', ${idx}, 'like')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
+                            <i class="fas fa-thumbs-up"></i> ${comment.likes || 0}
+                        </button>
+                        <button onclick="handleCommentVote('${post.id}', ${idx}, 'dislike')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
+                            <i class="fas fa-thumbs-down"></i> ${comment.dislikes || 0}
+                        </button>
+                    </div>
                 </div>
             `).join('');
 
