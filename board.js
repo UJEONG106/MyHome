@@ -121,33 +121,80 @@ async function initBoard() {
         window.toggleBoardView(true);
     };
 
-    // 5. Vote (Like/Dislike)
+    // 5. Vote (Like/Dislike) with Local Storage Protection
     window.handleVote = async function(id, type, currentCount) {
+        const voteKey = `voted_${id}`;
+        if (localStorage.getItem(voteKey)) {
+            if (typeof showToast === 'function') showToast('이미 투표하셨습니다.');
+            return;
+        }
+
         try {
             const postRef = doc(db, "posts", id);
             const increment = type === 'like' ? { likes: currentCount + 1 } : { dislikes: currentCount + 1 };
             await updateDoc(postRef, increment);
+            localStorage.setItem(voteKey, 'true');
+            if (typeof showToast === 'function') showToast('투표가 반영되었습니다.');
         } catch (error) {
             console.error("Error voting:", error);
+        }
+    };
+
+    // 6. Add Comment
+    window.addComment = async function(postId) {
+        const input = document.getElementById(`comment-input-${postId}`);
+        const content = input.value.trim();
+        if (!content) return;
+
+        try {
+            const postRef = doc(db, "posts", postId);
+            // We use an array for comments in Firestore
+            const postSnap = await getDocs(query(collection(db, "posts"))); // This is inefficient but okay for small scale
+            // Better: find current post data or use arrayUnion
+            const { arrayUnion } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+            
+            await updateDoc(postRef, {
+                comments: arrayUnion({
+                    author: "익명", // Could be enhanced with auth later
+                    content: content,
+                    createdAt: new Date().toISOString()
+                })
+            });
+            input.value = '';
+            if (typeof showToast === 'function') showToast('댓글이 등록되었습니다.');
+        } catch (error) {
+            console.error("Error adding comment:", error);
+            alert("댓글 저장 중 오류가 발생했습니다.");
         }
     };
 
     // --- Rendering ---
     function renderPosts(posts) {
         if (posts.length === 0) {
-            boardList.innerHTML = '<div class="board-empty" style="text-align:center; padding: 40px; color: var(--text-secondary);">아직 게시물이 없습니다. 첫 질문을 남겨보세요!</div>';
+            const emptyMsg = window.currentLang === 'en' ? 'No posts yet. Be the first to leave a question!' : '아직 게시물이 없습니다. 첫 질문을 남겨보세요!';
+            boardList.innerHTML = `<div class="board-empty" style="text-align:center; padding: 40px; color: var(--text-secondary);">${emptyMsg}</div>`;
             return;
         }
 
         boardList.innerHTML = posts.map(post => {
             const date = post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleString('ko-KR') : '방금 전';
+            const commentsHtml = (post.comments || []).map(comment => `
+                <div class="comment-item" style="padding: 10px; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: var(--sk-orange); font-weight: 600;">${escapeHtml(comment.author)}</span>
+                        <span style="color: var(--text-secondary); font-size: 0.7rem;">${new Date(comment.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div style="color: var(--text-primary);">${escapeHtml(comment.content)}</div>
+                </div>
+            `).join('');
+
             return `
                 <div class="board-post glass-card animate-fade visible" style="margin-bottom: 30px; padding: 25px;">
                     <div class="post-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px; margin-bottom: 15px;">
                         <span class="post-author" style="font-weight: 800; color: var(--accent-blue); font-size:1.1rem;">${escapeHtml(post.name)}</span>
                         <span class="post-date" style="font-size: 0.8rem; color: var(--text-secondary);">${date}</span>
                     </div>
-                    <div class="post-content" style="white-space: pre-wrap; font-size:1rem; line-height:1.6; color:#fff; min-height:60px;">${escapeHtml(post.content)}</div>
+                    <div class="post-content" style="white-space: pre-wrap; font-size:1rem; line-height:1.6; color:var(--text-primary); min-height:60px;">${escapeHtml(post.content)}</div>
                     
                     <div class="post-engagement" style="display: flex; gap: 20px; margin-top: 20px; padding: 15px 0; border-top: 1px solid var(--glass-border);">
                         <button class="vote-btn like" onclick="handleVote('${post.id}', 'like', ${post.likes || 0})" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:8px; font-size:0.9rem; transition:all 0.3s;">
@@ -158,9 +205,20 @@ async function initBoard() {
                         </button>
                     </div>
 
+                    <!-- Comment Section -->
+                    <div class="comment-section" style="background: rgba(120,120,120,0.05); border-radius: 8px; padding: 15px; margin-top: 10px;">
+                        <div class="comment-list" id="comment-list-${post.id}">
+                            ${commentsHtml}
+                        </div>
+                        <div class="comment-input-area" style="display: flex; gap: 10px; margin-top: 15px;">
+                            <input type="text" id="comment-input-${post.id}" placeholder="${window.currentLang === 'en' ? 'Write a comment...' : '댓글을 입력하세요...'}" style="flex: 1; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 4px; color: var(--text-primary);">
+                            <button onclick="addComment('${post.id}')" style="background: var(--accent-blue); color: #fff; border: none; padding: 0 15px; border-radius: 4px; cursor: pointer; font-weight: 800;">${window.currentLang === 'en' ? 'Post' : '등록'}</button>
+                        </div>
+                    </div>
+
                     <div class="post-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
-                        <button class="action-btn edit" onclick="editPost('${post.id}', '${post.name}', '${post.email}', '${post.content.replace(/'/g, "\\'")}')" style="background:transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem;"><i class="fas fa-edit"></i> 수정</button>
-                        <button class="action-btn delete" onclick="deletePost('${post.id}')" style="background:transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem;"><i class="fas fa-trash"></i> 삭제</button>
+                        <button class="action-btn edit" onclick="editPost('${post.id}', '${post.name}', '${post.email}', '${post.content.replace(/'/g, "\\'")}')" style="background:transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem;"><i class="fas fa-edit"></i> ${window.currentLang === 'en' ? 'Edit' : '수정'}</button>
+                        <button class="action-btn delete" onclick="deletePost('${post.id}')" style="background:transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); padding: 5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem;"><i class="fas fa-trash"></i> ${window.currentLang === 'en' ? 'Delete' : '삭제'}</button>
                     </div>
                 </div>
             `;
