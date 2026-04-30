@@ -68,6 +68,7 @@ async function initBoard() {
             const name = document.getElementById('board-name').value;
             const email = document.getElementById('board-email').value;
             const content = document.getElementById('board-content').value;
+            const password = document.getElementById('board-password').value;
             const editId = boardEditId.value;
 
             try {
@@ -77,6 +78,7 @@ async function initBoard() {
                         name,
                         email,
                         content,
+                        password, // Storing password for verification
                         createdAt: serverTimestamp(),
                         likes: 0,
                         dislikes: 0,
@@ -84,11 +86,20 @@ async function initBoard() {
                     });
                     if (typeof showToast === 'function') showToast('게시물이 등록되었습니다.');
                 } else {
-                    // Update
-                    await updateDoc(doc(db, "posts", editId), {
+                    // Update - Verification (though technically we verify before showing the form, but double check here)
+                    const postRef = doc(db, "posts", editId);
+                    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+                    const snap = await getDoc(postRef);
+                    if (snap.exists() && snap.data().password !== password) {
+                        alert("비밀번호가 일치하지 않아 수정할 수 없습니다.");
+                        return;
+                    }
+
+                    await updateDoc(postRef, {
                         name,
                         email,
                         content,
+                        password,
                         updatedAt: serverTimestamp()
                     });
                     if (typeof showToast === 'function') showToast('게시물이 수정되었습니다.');
@@ -101,48 +112,89 @@ async function initBoard() {
         });
     }
 
-    // 3. Delete Post
+    // 3. Delete Post with Password Verification
     window.deletePost = async function(id) {
-        if (!confirm('정말 삭제하시겠습니까?')) return;
         try {
-            await deleteDoc(doc(db, "posts", id));
+            const postRef = doc(db, "posts", id);
+            const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+            const snap = await getDoc(postRef);
+            if (!snap.exists()) return;
+
+            const inputPwd = prompt(window.currentLang === 'en' ? 'Enter password to delete:' : '삭제를 위해 비밀번호를 입력하세요:');
+            if (!inputPwd) return;
+
+            if (inputPwd !== snap.data().password) {
+                alert(window.currentLang === 'en' ? 'Incorrect password.' : '비밀번호가 일치하지 않습니다.');
+                return;
+            }
+
+            if (!confirm(window.currentLang === 'en' ? 'Are you sure you want to delete?' : '정말 삭제하시겠습니까?')) return;
+            
+            await deleteDoc(postRef);
             if (typeof showToast === 'function') showToast('게시물이 삭제되었습니다.');
         } catch (error) {
             console.error("Error deleting post:", error);
         }
     };
 
-    // 4. Edit Post (Prepare for update)
-    window.editPost = function(id, name, email, content) {
-        document.getElementById('board-name').value = name;
-        document.getElementById('board-email').value = email;
-        document.getElementById('board-content').value = content;
-        boardEditId.value = id;
-        window.toggleBoardView(true);
+    // 4. Edit Post with Password Verification
+    window.editPost = async function(id, name, email, content) {
+        try {
+            const postRef = doc(db, "posts", id);
+            const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+            const snap = await getDoc(postRef);
+            if (!snap.exists()) return;
+
+            const inputPwd = prompt(window.currentLang === 'en' ? 'Enter password to edit:' : '수정을 위해 비밀번호를 입력하세요:');
+            if (!inputPwd) return;
+
+            if (inputPwd !== snap.data().password) {
+                alert(window.currentLang === 'en' ? 'Incorrect password.' : '비밀번호가 일치하지 않습니다.');
+                return;
+            }
+
+            document.getElementById('board-name').value = name;
+            document.getElementById('board-email').value = email;
+            document.getElementById('board-content').value = content;
+            document.getElementById('board-password').value = snap.data().password; // Fill existing password
+            boardEditId.value = id;
+            window.toggleBoardView(true);
+        } catch (error) {
+            console.error("Error editing post:", error);
+        }
     };
 
-    // 5. Vote (Like/Dislike) with Toggle & Local Storage Protection
+    // 5. Vote (Like/Dislike) with Toggle & Switching support
     window.handleVote = async function(id, type, currentCount) {
         const voteKey = `voted_${id}`;
         const previousVote = localStorage.getItem(voteKey);
 
         try {
             const postRef = doc(db, "posts", id);
+            // Fetch latest counts to be accurate if switching
+            const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
+            const snap = await getDoc(postRef);
+            if (!snap.exists()) return;
+            const data = snap.data();
             let updateData = {};
 
             if (previousVote === type) {
                 // Toggle OFF: Clicked the same button again
-                updateData[type === 'like' ? 'likes' : 'dislikes'] = Math.max(0, currentCount - 1);
+                updateData[type === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (data[type === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
                 await updateDoc(postRef, updateData);
                 localStorage.removeItem(voteKey);
                 if (typeof showToast === 'function') showToast('투표를 취소했습니다.');
             } else if (previousVote) {
-                // Already voted for the OTHER type
-                if (typeof showToast === 'function') showToast('이미 다른 항목에 투표하셨습니다.');
-                return;
+                // Switching: Voted for Like -> Click Dislike
+                const oldType = previousVote;
+                updateData[oldType === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (data[oldType === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
+                updateData[type === 'like' ? 'likes' : 'dislikes'] = (data[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
+                await updateDoc(postRef, updateData);
+                localStorage.setItem(voteKey, type);
+                if (typeof showToast === 'function') showToast('투표 항목을 변경했습니다.');
             } else {
                 // New Vote
-                updateData[type === 'like' ? 'likes' : 'dislikes'] = currentCount + 1;
+                updateData[type === 'like' ? 'likes' : 'dislikes'] = (data[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
                 await updateDoc(postRef, updateData);
                 localStorage.setItem(voteKey, type);
                 if (typeof showToast === 'function') showToast('투표가 반영되었습니다.');
@@ -179,14 +231,13 @@ async function initBoard() {
         }
     };
 
-    // 7. Comment Vote Toggle
+    // 7. Comment Vote Toggle & Switching support
     window.handleCommentVote = async function(postId, commentIndex, type) {
         const voteKey = `voted_comment_${postId}_${commentIndex}`;
         const previousVote = localStorage.getItem(voteKey);
 
         try {
             const postRef = doc(db, "posts", postId);
-            // We need to get the whole array to update a specific index (Firestore limitation for nested arrays)
             const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js");
             const snap = await getDoc(postRef);
             if (!snap.exists()) return;
@@ -201,8 +252,12 @@ async function initBoard() {
                 localStorage.removeItem(voteKey);
                 if (typeof showToast === 'function') showToast('댓글 투표를 취소했습니다.');
             } else if (previousVote) {
-                if (typeof showToast === 'function') showToast('이미 투표하셨습니다.');
-                return;
+                // Switching
+                const oldType = previousVote;
+                comment[oldType === 'like' ? 'likes' : 'dislikes'] = Math.max(0, (comment[oldType === 'like' ? 'likes' : 'dislikes'] || 0) - 1);
+                comment[type === 'like' ? 'likes' : 'dislikes'] = (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
+                localStorage.setItem(voteKey, type);
+                if (typeof showToast === 'function') showToast('댓글 투표 항목을 변경했습니다.');
             } else {
                 // Vote
                 comment[type === 'like' ? 'likes' : 'dislikes'] = (comment[type === 'like' ? 'likes' : 'dislikes'] || 0) + 1;
@@ -226,23 +281,34 @@ async function initBoard() {
 
         boardList.innerHTML = posts.map(post => {
             const date = post.createdAt ? new Date(post.createdAt.seconds * 1000).toLocaleString('ko-KR') : '방금 전';
-            const commentsHtml = (post.comments || []).map((comment, idx) => `
-                <div class="comment-item" style="padding: 10px; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="color: var(--sk-orange); font-weight: 600;">${escapeHtml(comment.author)}</span>
-                        <span style="color: var(--text-secondary); font-size: 0.7rem;">${new Date(comment.createdAt).toLocaleDateString()}</span>
+            
+            const postVote = localStorage.getItem(`voted_${post.id}`);
+            const postLikeActive = postVote === 'like' ? 'active' : '';
+            const postDislikeActive = postVote === 'dislike' ? 'active' : '';
+
+            const commentsHtml = (post.comments || []).map((comment, idx) => {
+                const commentVote = localStorage.getItem(`voted_comment_${post.id}_${idx}`);
+                const cLikeActive = commentVote === 'like' ? 'active' : '';
+                const cDislikeActive = commentVote === 'dislike' ? 'active' : '';
+
+                return `
+                    <div class="comment-item" style="padding: 10px; border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="color: var(--sk-orange); font-weight: 600;">${escapeHtml(comment.author)}</span>
+                            <span style="color: var(--text-secondary); font-size: 0.7rem;">${new Date(comment.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div style="color: var(--text-primary); margin-bottom: 8px;">${escapeHtml(comment.content)}</div>
+                        <div class="comment-votes" style="display: flex; gap: 12px; opacity: 0.8;">
+                            <button class="vote-btn like ${cLikeActive}" onclick="handleCommentVote('${post.id}', ${idx}, 'like')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
+                                <i class="fas fa-thumbs-up"></i> ${comment.likes || 0}
+                            </button>
+                            <button class="vote-btn dislike ${cDislikeActive}" onclick="handleCommentVote('${post.id}', ${idx}, 'dislike')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
+                                <i class="fas fa-thumbs-down"></i> ${comment.dislikes || 0}
+                            </button>
+                        </div>
                     </div>
-                    <div style="color: var(--text-primary); margin-bottom: 8px;">${escapeHtml(comment.content)}</div>
-                    <div class="comment-votes" style="display: flex; gap: 12px; opacity: 0.8;">
-                        <button onclick="handleCommentVote('${post.id}', ${idx}, 'like')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
-                            <i class="fas fa-thumbs-up"></i> ${comment.likes || 0}
-                        </button>
-                        <button onclick="handleCommentVote('${post.id}', ${idx}, 'dislike')" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">
-                            <i class="fas fa-thumbs-down"></i> ${comment.dislikes || 0}
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
             return `
                 <div class="board-post glass-card animate-fade visible" style="margin-bottom: 30px; padding: 25px;">
@@ -253,10 +319,10 @@ async function initBoard() {
                     <div class="post-content" style="white-space: pre-wrap; font-size:1rem; line-height:1.6; color:var(--text-primary); min-height:60px;">${escapeHtml(post.content)}</div>
                     
                     <div class="post-engagement" style="display: flex; gap: 20px; margin-top: 20px; padding: 15px 0; border-top: 1px solid var(--glass-border);">
-                        <button class="vote-btn like" onclick="handleVote('${post.id}', 'like', ${post.likes || 0})" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:8px; font-size:0.9rem; transition:all 0.3s;">
+                        <button class="vote-btn like ${postLikeActive}" onclick="handleVote('${post.id}', 'like', ${post.likes || 0})" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:8px; font-size:0.9rem; transition:all 0.3s;">
                             <i class="fas fa-thumbs-up" style="font-size:1.1rem;"></i> <span>${post.likes || 0}</span>
                         </button>
-                        <button class="vote-btn dislike" onclick="handleVote('${post.id}', 'dislike', ${post.dislikes || 0})" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:8px; font-size:0.9rem; transition:all 0.3s;">
+                        <button class="vote-btn dislike ${postDislikeActive}" onclick="handleVote('${post.id}', 'dislike', ${post.dislikes || 0})" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; gap:8px; font-size:0.9rem; transition:all 0.3s;">
                             <i class="fas fa-thumbs-down" style="font-size:1.1rem;"></i> <span>${post.dislikes || 0}</span>
                         </button>
                     </div>
